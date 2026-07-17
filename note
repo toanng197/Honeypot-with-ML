@@ -1,1 +1,2 @@
-
+Tạo folder logs trong  "Honeypot-ML\Krawl-main\Nginx\nginx-1.31.1\logs"
+rồi tạo 3 file  lần lượt là access.log,error.log,nginx.pid
