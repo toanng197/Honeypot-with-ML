@@ -1,0 +1,59 @@
+{# Map section with filter legend #}
+<div class="table-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h2 style="margin: 0;">IP Origins Map</h2>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="color: #8b949e; font-size: 0.8em;">Sort</span>
+                <div style="display: flex; gap: 4px;" id="map-sort-selector">
+                    <button class="map-limit-btn active" data-sort="last_seen"
+                            onclick="document.querySelectorAll('#map-sort-selector .map-limit-btn').forEach(b => b.classList.remove('active')); this.classList.add('active'); if(typeof reloadMapWithSort==='function') reloadMapWithSort()">
+                        Recent
+                    </button>
+                    <button class="map-limit-btn" data-sort="total_requests"
+                            onclick="document.querySelectorAll('#map-sort-selector .map-limit-btn').forEach(b => b.classList.remove('active')); this.classList.add('active'); if(typeof reloadMapWithSort==='function') reloadMapWithSort()">
+                        Requests
+                    </button>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="color: #8b949e; font-size: 0.8em;">Show</span>
+                <div style="display: flex; gap: 4px;" id="map-limit-selector">
+                    {% set limits = [
+                        ("1000", "1K"),
+                        ("5000", "5K"),
+                        ("10000", "10K"),
+                        ("25000", "25K"),
+                        ("50000", "50K"),
+                        ("all", "All"),
+                    ] %}
+                    {% for value, label in limits %}
+                    <button class="map-limit-btn{{ ' active' if value == '1000' else '' }}"
+                            data-value="{{ value }}"
+                            onclick="document.querySelectorAll('#map-limit-selector .map-limit-btn').forEach(b => b.classList.remove('active')); this.classList.add('active'); if(typeof reloadMapWithLimit==='function') reloadMapWithLimit('{{ value }}')">
+                        {{ label }}
+                    </button>
+                    {% endfor %}
+                </div>
+                <span style="color: #8b949e; font-size: 0.8em;">IPs</span>
+            </div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+        {% set categories = [
+            ("attacker", "#f85149", "Attackers"),
+            ("bad_crawler", "#f0883e", "Bad Crawlers"),
+            ("good_crawler", "#3fb950", "Good Crawlers"),
+            ("regular_user", "#58a6ff", "Regular Users"),
+            ("unknown", "#8b949e", "Unknown"),
+        ] %}
+        {% for cat_id, color, cat_label in categories %}
+        <div class="map-legend-item active" data-category="{{ cat_id }}" onclick="this.classList.toggle('active'); this.querySelector('input').checked = this.classList.contains('active'); if(typeof updateMapFilters==='function') updateMapFilters()">
+            <input type="checkbox" checked class="map-filter" data-category="{{ cat_id }}" style="display: none;">
+            <span class="map-legend-dot" style="background: {{ color }};"></span>
+            <span class="map-legend-label">{{ cat_label }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div id="attacker-map" style="height: 450px; border-radius: 6px; border: 1px solid #30363d;"></div>
+</div>

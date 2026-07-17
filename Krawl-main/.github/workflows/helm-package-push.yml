@@ -1,0 +1,69 @@
+name: Package and Push Helm Chart
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - github-actions-ci
+    paths:
+      - 'helm/**'
+      - '.github/workflows/helm-package-push.yml'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+
+jobs:
+  package-and-push:
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Log in to Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username ${{ github.actor }} --password-stdin
+        
+      - name: Set Helm chart version and package
+        run: |
+          CHART_NAME=$(grep '^name:' ./helm/Chart.yaml | awk '{print $2}')
+          BASE_VERSION=$(grep '^version:' ./helm/Chart.yaml | awk '{print $2}')
+          
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            CHART_VERSION="${BASE_VERSION}"
+          else
+            CHART_VERSION="${BASE_VERSION}-${{ github.ref_name }}"
+          fi
+          
+          # Update Chart.yaml temporarily with the versioned name
+          sed -i "s/^version:.*/version: ${CHART_VERSION}/" ./helm/Chart.yaml
+          
+          # Package the helm chart
+          helm package ./helm
+          
+          echo "CHART_NAME=${CHART_NAME}" >> $GITHUB_ENV
+          echo "CHART_VERSION=${CHART_VERSION}" >> $GITHUB_ENV
+
+      - name: Push Helm chart to registry
+        run: |
+          helm push ${{ env.CHART_NAME }}-${{ env.CHART_VERSION }}.tgz oci://${{ env.REGISTRY }}
+
+      - name: Chart pushed
+        run: |
+          CHART_VERSION=$(grep '^version:' ./helm/Chart.yaml | awk '{print $2}')
+          CHART_FILE=$(grep '^name:' ./helm/Chart.yaml | awk '{print $2}')
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "Chart pushed: ${CHART_FILE}:${CHART_VERSION}"
+          else
+            echo "Chart pushed: ${CHART_FILE}:${CHART_VERSION}-${{ github.ref_name }}"
+          fi

@@ -1,0 +1,88 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Helm
+helm/charts/
+helm/*.tgz
+helm/values-production.yaml
+!helm/values.yaml
+
+# Kubernetes secrets (if generated locally)
+*.secret.yaml
+secrets/
+
+# Docker
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.envrc
+
+# Logs
+*.log
+logs/
+
+# Data and databases
+data/
+**/data/
+*.db
+*.sqlite
+*.sqlite3
+backups/
+models/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Personal canary tokens or sensitive configs
+*canary*token*.yaml
+personal-values.yaml
+
+#exports dir (keeping .gitkeep so we have the dir)
+/exports/*
+/src/exports/*
+
+# tmux config
+.tmux.conf

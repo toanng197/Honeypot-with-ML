@@ -1,0 +1,56 @@
+name: Kubernetes Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'kubernetes/**'
+      - 'helm/**'
+      - '.github/workflows/kubernetes-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-manifests:
+    name: Validate Kubernetes Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate YAML syntax
+        run: |
+          for manifest in kubernetes/**/*.yaml; do
+            if [ -f "$manifest" ]; then
+              echo "Validating YAML syntax: $manifest"
+              python3 -c "import yaml, sys; yaml.safe_load(open('$manifest'))" || exit 1
+            fi
+          done
+
+      - name: Validate manifest structure
+        run: |
+          for manifest in kubernetes/**/*.yaml; do
+            if [ -f "$manifest" ]; then
+              echo "Checking $manifest"
+              if ! grep -q "kind:" "$manifest"; then
+                echo "Error: $manifest does not contain a Kubernetes kind"
+                exit 1
+              fi
+            fi
+          done
+
+  validate-helm:
+    name: Validate Helm Chart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: helm lint ./helm
+
+      - name: Helm template validation
+        run: helm template krawl ./helm > /tmp/helm-output.yaml

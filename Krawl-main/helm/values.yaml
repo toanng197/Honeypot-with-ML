@@ -1,0 +1,765 @@
+# Deployment mode: "standalone" (SQLite + in-memory cache) or "scalable" (PostgreSQL + Redis)
+mode: scalable
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/blessedrebus/krawl
+  pullPolicy: Always
+  tag: "2.1.0"
+
+imagePullSecrets: []
+nameOverride: "krawl"
+fullnameOverride: ""
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+service:
+  type: LoadBalancer
+  port: 5000
+  annotations: {}
+  # Preserve source IP when using LoadBalancer
+  externalTrafficPolicy: Local
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations: {}
+  hosts:
+    - host: krawl.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: krawl-tls
+  #    hosts:
+  #      - krawl.example.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+# Container timezone configuration
+# Set this to change timezone (e.g., "America/New_York", "Europe/Rome")
+# If not set, container will use its default timezone
+timezone: ""
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Dashboard password for protected panels
+# If empty, a random password will be auto-generated and printed in the logs
+dashboardPassword: ""
+
+# Application configuration (config.yaml structure)
+config:
+  server:
+    port: 5000
+    delay: 100
+  links:
+    min_length: 5
+    max_length: 15
+    min_per_page: 10
+    max_per_page: 15
+    char_space: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    max_counter: 10
+  canary:
+    token_url: null  # Set your canary token URL here
+    token_tries: 10
+  dashboard:
+    secret_path: null  # Auto-generated if not set, or set to "/my-secret-dashboard"
+    cache_warmup: true  # Pre-compute dashboard data every 5 minutes. In scalable mode with Redis, consider setting to false — table caching handles it.
+    warmup_pages: 10  # Number of pages to pre-warm per table panel (attacks, attackers, credentials, honeypot)
+    warmup_aggregation: true  # Pre-compute full top_paths/top_ua aggregations for instant any-page serving (recommended for scalable)
+    top_n_min_count: 5  # Minimum access count to include a path/user-agent in top-N panels (set to 1 to disable)
+  backups:
+    path: "backups"
+    enabled: false
+    cron: "*/30 * * * *"
+  logging:
+    level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  database:
+    path: "data/krawl.db"
+    retention_days: 30
+    persist_suspicious_only: false  # Only persist suspicious requests to access log
+  behavior:
+    probability_error_codes: 0
+  analyzer:
+    http_risky_methods_threshold: 0.1
+    violated_robots_threshold: 0.1
+    uneven_request_timing_threshold: 0.5
+    uneven_request_timing_time_window_seconds: 300
+    user_agents_used_threshold: 2
+    attack_urls_threshold: 1
+  crawl:
+    infinite_pages_for_malicious: true
+    max_pages_limit: 250
+    ban_duration_seconds: 600
+  ai:
+    enabled: false
+    provider: "openrouter"  # "openrouter" or "openai"
+# openai_base_url: "https://api.openai.com/v1" is only needed if provider is set to "openai" and you want to use a custom endpoint to reach different models
+    api_key: null # set your OpenAI or OpenRouter API key here
+    model: null  # for example nvidia/nemotron-3-super-120b-a12b:free or gpt-5.1-mini
+    timeout: 60  # Request timeout in seconds for API calls
+    max_daily_requests: 100  # Limit the number of AI-generated responses per day
+    reasoning:
+      enabled: false # only supported for OpenRouter's models with reasoning capabilities
+      effort: "medium"  # "none", "minimal", "low", "medium", "high", "xhigh" (doc: https://openrouter.ai/docs/guides/best-practices/reasoning-tokens)
+    prompt: |
+      Your goal is to create a plausible but fake intentionally vulnerable page that might appear on a real server, that can distract attackers. 
+      Your input will be a query path, that the attacker asked for. 
+
+      Follow this rules:
+      1. You must output ONLY the HTML, nothing else
+      2. Include realistic content if necessary (links, text, forms, etc.)
+      3. Do not add markdown, code blocks, or explanations
+      4. Do not include any file in the html, generate everything needed in one single file
+      5. Include proper HTML structure with head and body tags
+      6. If the request is a common attack vector (e.g., SQLi, XSS), include fake data in response
+      7. If the request has a file extension, generate a RAW content relevant to that type (e.g. a fake json for .json requests)
+
+      Path: {path}{query_part}
+      Generate the complete HTML page.
+  tarpit:
+    enabled: false  # Opt-in: trap AI agents with slow responses and random text
+    delay_seconds: 5  # Extra delay (seconds) added to each response when tarpit is active
+
+# PostgreSQL settings (only used when mode=scalable)
+postgres:
+  # Deploy PostgreSQL as part of this chart (set to false if using an external instance)
+  enabled: true
+  host: "postgres"
+  port: 5432
+  user: "krawl"
+  password: "krawl"
+  database: "krawl"
+  # Use an existing secret for the PostgreSQL password instead of plaintext
+  # existingSecret: ""
+  # existingSecretKey: "postgres-password"
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  persistence:
+    enabled: true
+    size: 5Gi
+    accessMode: ReadWriteOnce
+    # storageClassName: ""
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# Redis settings (only used when mode=scalable)
+redis:
+  # Deploy Redis as part of this chart (set to false if using an external instance)
+  enabled: true
+  host: "redis"
+  port: 6379
+  db: 0
+  password: ""
+  # Cache TTL settings (seconds)
+  cache_ttl: 600    # Dashboard warmup data (default: 10 minutes)
+  hot_ttl: 30       # Hot-path data like ban info (default: 30 seconds)
+  table_ttl: 120    # Paginated dashboard tables (default: 2 minutes)
+  # Use an existing secret for the Redis password instead of plaintext
+  # existingSecret: ""
+  # existingSecretKey: "redis-password"
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  persistence:
+    enabled: true
+    size: 1Gi
+    accessMode: ReadWriteOnce
+    # storageClassName: ""
+  resources:
+    limits:
+      cpu: 250m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# SQLite -> PostgreSQL migration job settings
+migration:
+  enabled: false
+  # SQLite filename inside the PVC (default: krawl.db)
+  sqliteFilename: "krawl.db"
+  # Rows per batch insert
+  batchSize: 1000
+  # Drop existing PostgreSQL tables before migrating
+  dropExisting: false
+  # Use a specific existing PVC (defaults to <release>-krawl-db)
+  # existingClaim: ""
+  # Job retry limit
+  backoffLimit: 3
+  # Auto-cleanup job after completion (seconds)
+  ttlSecondsAfterFinished: 3600
+
+# Database persistence configuration (only used when mode=standalone)
+database:
+  # Persistence configuration
+  persistence:
+    enabled: true
+    # Storage class name (use default if not specified)
+    # storageClassName: ""
+    # Access mode for the persistent volume
+    accessMode: ReadWriteOnce
+    # Size of the persistent volume
+    size: 1Gi
+    # Optional: Use existing PVC
+    # existingClaim: ""
+
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - podSelector: {}
+      - namespaceSelector: {}
+      - ipBlock:
+          cidr: 0.0.0.0/0
+      ports:
+      - protocol: TCP
+        port: 5000
+  egress:
+    - to:
+      - namespaceSelector: {}
+      - ipBlock:
+          cidr: 0.0.0.0/0
+      ports:
+      - protocol: TCP
+      - protocol: UDP
+
+# Wordlists configuration
+wordlists:
+  # Proxy headers to check for real client IP (checked in order, first match wins)
+  proxy_headers:
+    - CF-Connecting-IP
+    - X-Forwarded-For
+    - X-Real-IP
+  usernames:
+    prefixes:
+      - admin
+      - user
+      - developer
+      - root
+      - system
+      - db
+      - api
+      - service
+      - deploy
+      - test
+      - prod
+      - backup
+      - monitor
+      - jenkins
+      - webapp
+    suffixes:
+      - ""
+      - "_prod"
+      - "_dev"
+      - "_test"
+      - "123"
+      - "2024"
+      - "_backup"
+      - "_admin"
+      - "01"
+      - "02"
+      - "_user"
+      - "_service"
+      - "_api"
+  passwords:
+    prefixes:
+      - P@ssw0rd
+      - Passw0rd
+      - Admin
+      - Secret
+      - Welcome
+      - System
+      - Database
+      - Secure
+      - Master
+      - Root
+    simple:
+      - test
+      - demo
+      - temp
+      - change
+      - password
+      - admin
+      - letmein
+      - welcome
+      - default
+      - sample
+  emails:
+    domains:
+      - example.com
+      - company.com
+      - localhost.com
+      - test.com
+      - domain.com
+      - corporate.com
+      - internal.net
+      - enterprise.com
+      - business.org
+  api_keys:
+    prefixes:
+      - sk_live_
+      - sk_test_
+      - api_
+      - key_
+      - token_
+      - access_
+      - secret_
+      - prod_
+      - ""
+  databases:
+    names:
+      - production
+      - prod_db
+      - main_db
+      - app_database
+      - users_db
+      - customer_data
+      - analytics
+      - staging_db
+      - dev_database
+      - wordpress
+      - ecommerce
+      - crm_db
+      - inventory
+    hosts:
+      - localhost
+      - db.internal
+      - mysql.local
+      - postgres.internal
+      - 127.0.0.1
+      - db-server-01
+      - database.prod
+      - sql.company.com
+  applications:
+    names:
+      - WebApp
+      - API Gateway
+      - Dashboard
+      - Admin Panel
+      - CMS
+      - Portal
+      - Manager
+      - Console
+      - Control Panel
+      - Backend
+  users:
+    roles:
+      - Administrator
+      - Developer
+      - Manager
+      - User
+      - Guest
+      - Moderator
+      - Editor
+      - Viewer
+      - Analyst
+      - Support
+  directory_listing:
+    files:
+      - admin.txt
+      - test.exe
+      - backup.sql
+      - database.sql
+      - db_backup.sql
+      - dump.sql
+      - config.php
+      - credentials.txt
+      - passwords.txt
+      - users.csv
+      - .env
+      - id_rsa
+      - id_rsa.pub
+      - private_key.pem
+      - api_keys.json
+      - secrets.yaml
+      - admin_notes.txt
+      - settings.ini
+      - database.yml
+      - wp-config.php
+      - .htaccess
+      - server.key
+      - cert.pem
+      - shadow.bak
+      - passwd.old
+    directories:
+      - uploads/
+      - backups/
+      - logs/
+      - temp/
+      - cache/
+      - private/
+      - config/
+      - admin/
+      - database/
+      - backup/
+      - old/
+      - archive/
+      - .git/
+      - keys/
+      - credentials/
+    fake_files:
+      - name: settings.conf
+        size_min: 1024
+        size_max: 8192
+        perms: "-rw-r--r--"
+      - name: database.sql
+        size_min: 10240
+        size_max: 102400
+        perms: "-rw-r--r--"
+      - name: .htaccess
+        size_min: 256
+        size_max: 1024
+        perms: "-rw-r--r--"
+      - name: README.md
+        size_min: 512
+        size_max: 2048
+        perms: "-rw-r--r--"
+    fake_directories:
+      - name: config
+        size: "4096"
+        perms: drwxr-xr-x
+      - name: backup
+        size: "4096"
+        perms: drwxr-xr-x
+      - name: logs
+        size: "4096"
+        perms: drwxrwxr-x
+      - name: data
+        size: "4096"
+        perms: drwxr-xr-x
+  fake_passwd:
+    system_users:
+      - "root:x:0:0:root:/root:/bin/bash"
+      - "daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin"
+      - "bin:x:2:2:bin:/bin:/usr/sbin/nologin"
+      - "sys:x:3:3:sys:/dev:/usr/sbin/nologin"
+      - "sync:x:4:65534:sync:/bin:/bin/sync"
+      - "www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin"
+      - "backup:x:34:34:backup:/var/backups:/usr/sbin/nologin"
+      - "mysql:x:108:113:MySQL Server,,,:/nonexistent:/bin/false"
+      - "sshd:x:109:65534::/run/sshd:/usr/sbin/nologin"
+    uid_min: 1000
+    uid_max: 2000
+    gid_min: 1000
+    gid_max: 2000
+    shells:
+      - /bin/bash
+      - /bin/sh
+      - /usr/bin/zsh
+  fake_shadow:
+    system_entries:
+      - "root:$6$rounds=656000$fake_salt_here$fake_hash_data:19000:0:99999:7:::"
+      - "daemon:*:19000:0:99999:7:::"
+      - "bin:*:19000:0:99999:7:::"
+      - "sys:*:19000:0:99999:7:::"
+      - "www-data:*:19000:0:99999:7:::"
+    hash_prefix: "$6$rounds=656000$"
+    salt_length: 16
+    hash_length: 86
+  xxe_responses:
+    file_access:
+      template: |
+        <?xml version="1.0"?>
+        <response>
+            <status>success</status>
+            <data>{content}</data>
+        </response>
+    entity_processed:
+      template: |
+        <?xml version="1.0"?>
+        <response>
+            <status>success</status>
+            <message>Entity processed successfully</message>
+            <entity_value>{entity_value}</entity_value>
+        </response>
+      entity_values:
+        - "admin_credentials"
+        - "database_connection"
+        - "api_secret_key"
+        - "internal_server_ip"
+        - "encrypted_password"
+    error:
+      template: |
+        <?xml version="1.0"?>
+        <response>
+            <status>error</status>
+            <message>{message}</message>
+        </response>
+      messages:
+        - "External entity not allowed"
+        - "XML parsing error"
+        - "Invalid entity reference"
+    default_content: "root:x:0:0:root:/root:/bin/bash\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin"
+  command_outputs:
+    id:
+      - "uid={uid}(www-data) gid={gid}(www-data) groups={gid}(www-data)"
+      - "uid={uid}(nginx) gid={gid}(nginx) groups={gid}(nginx)"
+      - "uid={uid}(apache) gid={gid}(apache) groups={gid}(apache)"
+    whoami:
+      - www-data
+      - nginx
+      - apache
+      - webapp
+      - nobody
+    uname:
+      - "Linux webserver 5.4.0-42-generic #46-Ubuntu SMP Fri Jul 10 00:24:02 UTC 2020 x86_64 x86_64 x86_64 GNU/Linux"
+      - "Linux app-server 4.15.0-112-generic #113-Ubuntu SMP Thu Jul 9 23:41:39 UTC 2020 x86_64 GNU/Linux"
+      - "Linux prod-server 5.15.0-56-generic #62-Ubuntu SMP Tue Nov 22 19:54:14 UTC 2022 x86_64 GNU/Linux"
+    pwd:
+      - /var/www/html
+      - /home/webapp/public_html
+      - /usr/share/nginx/html
+      - /opt/app/public
+    ls:
+      - ["index.php", "config.php", "uploads", "assets", "README.md", ".htaccess", "admin"]
+      - ["app.js", "package.json", "node_modules", "public", "views", "routes"]
+      - ["index.html", "css", "js", "images", "data", "api"]
+    cat_config: |
+      <?php
+      // Configuration file
+      $db_host = 'localhost';
+      $db_user = 'webapp';
+      $db_pass = 'fake_password';
+      ?>
+    network_commands:
+      - "bash: wget: command not found"
+      - "curl: (6) Could not resolve host: example.com"
+      - "Connection timeout"
+      - "bash: nc: command not found"
+      - "Downloaded {size} bytes"
+    generic:
+      - "sh: 1: syntax error: unexpected end of file"
+      - "Command executed successfully"
+      - ""
+      - "/bin/sh: {num}: not found"
+      - "bash: command not found"
+    uid_min: 1000
+    uid_max: 2000
+    gid_min: 1000
+    gid_max: 2000
+    download_size_min: 100
+    download_size_max: 10000
+  sql_errors:
+    mysql:
+      syntax_errors:
+        - "You have an error in your SQL syntax"
+        - "check the manual that corresponds to your MySQL server version"
+      table_errors:
+        - "Table '{table}' doesn't exist"
+        - "Unknown table '{table}'"
+      column_errors:
+        - "Unknown column '{column}' in 'field list'"
+        - "Unknown column '{column}' in 'where clause'"
+    postgresql:
+      syntax_errors:
+        - "ERROR: syntax error at or near"
+        - "ERROR: unterminated quoted string"
+      relation_errors:
+        - "ERROR: relation \"{table}\" does not exist"
+      column_errors:
+        - "ERROR: column \"{column}\" does not exist"
+    mssql:
+      syntax_errors:
+        - "Incorrect syntax near"
+        - "Unclosed quotation mark"
+      object_errors:
+        - "Invalid object name '{table}'"
+      column_errors:
+        - "Invalid column name '{column}'"
+    oracle:
+      syntax_errors:
+        - "ORA-00933: SQL command not properly ended"
+        - "ORA-00904: invalid identifier"
+      table_errors:
+        - "ORA-00942: table or view does not exist"
+    sqlite:
+      syntax_errors:
+        - "near \"{token}\": syntax error"
+      table_errors:
+        - "no such table: {table}"
+      column_errors:
+        - "no such column: {column}"
+    mongodb:
+      query_errors:
+        - "Failed to parse"
+        - "unknown operator"
+      collection_errors:
+        - "ns not found"
+  server_errors:
+    nginx:
+      versions:
+        - "1.18.0"
+        - "1.20.1"
+        - "1.22.0"
+        - "1.24.0"
+      template: |
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <title>{code} {message}</title>
+        <style>
+        body {{
+            width: 35em;
+            margin: 0 auto;
+            font-family: Tahoma, Verdana, Arial, sans-serif;
+        }}
+        </style>
+        </head>
+        <body>
+        <h1>An error occurred.</h1>
+        <p>Sorry, the page you are looking for is currently unavailable.<br/>
+        Please try again later.</p>
+        <p>If you are the system administrator of this resource then you should check the error log for details.</p>
+        <p><em>Faithfully yours, nginx/{version}.</em></p>
+        </body>
+        </html>
+    apache:
+      versions:
+        - "2.4.41"
+        - "2.4.52"
+        - "2.4.54"
+        - "2.4.57"
+      os:
+        - Ubuntu
+        - Debian
+        - CentOS
+      template: |
+        <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+        <html><head>
+        <title>{code} {message}</title>
+        </head><body>
+        <h1>{message}</h1>
+        <p>The requested URL was not found on this server.</p>
+        <hr>
+        <address>Apache/{version} ({os}) Server at {host} Port 80</address>
+        </body></html>
+    iis:
+      versions:
+        - "10.0"
+        - "8.5"
+        - "8.0"
+      template: |
+        <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+        <html xmlns="http://www.w3.org/1999/xhtml">
+        <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+        <title>{code} - {message}</title>
+        </head>
+        <body>
+        <div id="header"><h1>Server Error</h1></div>
+        <div id="content">
+         <h2>{code} - {message}</h2>
+         <h3>The page cannot be displayed because an internal server error has occurred.</h3>
+        </div>
+        </body>
+        </html>
+  attack_patterns:
+    path_traversal: "(\\.\\.| %2e%2e|%252e|/etc/passwd|/etc/shadow|\\.\\.\\\\/|\\.\\./|/windows/system32|c:\\\\windows|/proc/self|\\.\\.\\.%2f|\\.\\.\\.%5c|etc/passwd|etc/shadow)"
+    sql_injection: "('|\"|`|--|#|/\\*|\\*/|\\bunion\\b|\\bunion\\s+select\\b|\\bor\\b.*=.*|\\band\\b.*=.*|'.*or.*'.*=.*'|\\bsleep\\b|\\bwaitfor\\b|\\bdelay\\b|\\bbenchmark\\b|;.*select|;.*drop|;.*insert|;.*update|;.*delete|\\bexec\\b|\\bexecute\\b|\\bxp_cmdshell\\b|information_schema|table_schema|table_name)"
+    xss_attempt: "(<script|</script|javascript:|onerror=|onload=|onclick=|onmouseover=|onfocus=|onblur=|<iframe|<img|<svg|<embed|<object|<body|<input|eval\\(|alert\\(|prompt\\(|confirm\\(|document\\.|window\\.|<style|expression\\(|vbscript:|data:text/html)"
+    lfi_rfi: "(file://|php://|expect://|data://|zip://|phar://|/etc/passwd|/etc/shadow|/proc/self|c:\\\\windows)"
+    xxe_injection: "(<!ENTITY|<!DOCTYPE|SYSTEM\\s+[\"']|PUBLIC\\s+[\"']|&\\w+;|file://|php://filter|expect://)"
+    ldap_injection: "(\\*\\)|\\(\\||\\(&)"
+    command_injection: "(cmd=|exec=|command=|execute=|system=|ping=|host=|&&|\\|\\||;|\\$\\{|\\$\\(|`|\\bid\\b|\\bwhoami\\b|\\buname\\b|\\becho\\b|\\bwget\\b|\\bcurl\\b|\\bnc\\b|\\bnetcat\\b|\\bbash\\b|\\bkill\\b|\\bchmod\\b|\\bchown\\b|\\brm\\b|(?:;|&&|\\|\\||`|\\$\\(|\\$\\{)\\s*(?:ls|pwd|cat|sh|ps|cp|mv)\\b|/bin/bash|/bin/sh|cmd\\.exe|/bin/|/usr/bin/|/sbin/)"
+    common_probes: "(/admin|/wp-admin|/phpMyAdmin|/phpmyadmin|/feedback|\\.env|/credentials\\.txt|/passwords\\.txt|\\.git|/backup\\.sql|/db_backup\\.sql)"
+    login_attempt: "(/wp-login\\.php|/wp-login|/admin/login|/admin/signin|/user/login|/users/login|/account/login|/portal/login|/secure/login|/login\\.php|/login\\.asp|/login\\.aspx|/signin|/sign-in|/sign_in|/auth/login|/api/auth|/api/login|/api/signin|/api/token|/oauth/login|/sso/login|/xmlrpc\\.php|/session/new|action=login)"
+  scoring_weights:
+    attacker:
+      risky_http_methods: 6
+      robots_violations: 4
+      uneven_request_timing: 3
+      different_user_agents: 2
+      attack_url: 15
+    good_crawler:
+      risky_http_methods: 1
+      robots_violations: 0
+      uneven_request_timing: 0
+      different_user_agents: 0
+      attack_url: 0
+    bad_crawler:
+      risky_http_methods: 2
+      robots_violations: 6
+      uneven_request_timing: 0
+      different_user_agents: 6
+      attack_url: 4
+    regular_user:
+      risky_http_methods: 0
+      robots_violations: 0
+      uneven_request_timing: 8
+      different_user_agents: 3
+      attack_url: 0
+  suspicious_patterns:
+    - sqlmap
+    - nessus
+    - burp
+    - zap
+    - metasploit
+    - nuclei
+    - gobuster
+    - dirbuster
+  credential_fields:
+    username_fields:
+      - username
+      - user
+      - login
+      - email
+      - log
+      - userid
+      - account
+    password_fields:
+      - password
+      - pass
+      - passwd
+      - pwd
+      - passphrase
+  server_headers:
+    - Apache/2.2.22 (Ubuntu)
+    - nginx/1.18.0
+    - Microsoft-IIS/10.0
+    - LiteSpeed
+    - Caddy
+    - Gunicorn/20.0.4
+    - uvicorn/0.13.4
+    - Express
+    - Flask/1.1.2
+    - Django/3.1
+  error_codes:
+    - 400
+    - 401
+    - 403
+    - 404
+    - 500
+    - 502
+    - 503

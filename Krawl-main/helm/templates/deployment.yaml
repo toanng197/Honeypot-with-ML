@@ -1,0 +1,149 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "krawl.fullname" . }}
+  labels:
+    {{- include "krawl.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    {{- if eq .Values.mode "scalable" }}
+    type: RollingUpdate
+    {{- else }}
+    type: Recreate
+    {{- end }}
+  selector:
+    matchLabels:
+      {{- include "krawl.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "krawl.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: krawl
+        {{- with .Values.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 12 }}
+        {{- end }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.config.server.port }}
+          protocol: TCP
+        env:
+        - name: CONFIG_LOCATION
+          value: "config.yaml"
+        {{- if .Values.timezone }}
+        - name: TZ
+          value: {{ .Values.timezone | quote }}
+        {{- end }}
+        {{- if .Values.dashboardPassword }}
+        - name: KRAWL_DASHBOARD_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "krawl.fullname" . }}-dashboard
+              key: dashboard-password
+        {{- end }}
+        {{- if .Values.config.ai.api_key }}
+        - name: KRAWL_AI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "krawl.fullname" . }}-ai
+              key: ai-api-key
+        {{- end }}
+        {{- if eq .Values.mode "scalable" }}
+        - name: KRAWL_MODE
+          value: "scalable"
+        - name: KRAWL_POSTGRES_HOST
+          value: {{ .Values.postgres.host | quote }}
+        - name: KRAWL_POSTGRES_PORT
+          value: {{ .Values.postgres.port | quote }}
+        - name: KRAWL_POSTGRES_USER
+          value: {{ .Values.postgres.user | quote }}
+        - name: KRAWL_POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "krawl.fullname" . }}-postgres
+              key: postgres-password
+        - name: KRAWL_POSTGRES_DATABASE
+          value: {{ .Values.postgres.database | quote }}
+        - name: KRAWL_REDIS_HOST
+          value: {{ .Values.redis.host | quote }}
+        - name: KRAWL_REDIS_PORT
+          value: {{ .Values.redis.port | quote }}
+        - name: KRAWL_REDIS_DB
+          value: {{ .Values.redis.db | quote }}
+        {{- if .Values.redis.password }}
+        - name: KRAWL_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "krawl.fullname" . }}-redis
+              key: redis-password
+        {{- end }}
+        - name: KRAWL_REDIS_CACHE_TTL
+          value: {{ .Values.redis.cache_ttl | default 600 | quote }}
+        - name: KRAWL_REDIS_HOT_TTL
+          value: {{ .Values.redis.hot_ttl | default 30 | quote }}
+        - name: KRAWL_REDIS_TABLE_TTL
+          value: {{ .Values.redis.table_ttl | default 120 | quote }}
+        {{- end }}
+        volumeMounts:
+        - name: config
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+          readOnly: true
+        - name: wordlists
+          mountPath: /app/wordlists.json
+          subPath: wordlists.json
+          readOnly: true
+        {{- if and .Values.database.persistence.enabled (ne .Values.mode "scalable") }}
+        - name: database
+          mountPath: /app/data
+        {{- end }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 12 }}
+        {{- end }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "krawl.fullname" . }}-config
+      - name: wordlists
+        configMap:
+          name: {{ include "krawl.fullname" . }}-wordlists
+      {{- if and .Values.database.persistence.enabled (ne .Values.mode "scalable") }}
+      - name: database
+        {{- if .Values.database.persistence.existingClaim }}
+        persistentVolumeClaim:
+          claimName: {{ .Values.database.persistence.existingClaim }}
+        {{- else }}
+        persistentVolumeClaim:
+          claimName: {{ include "krawl.fullname" . }}-db
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

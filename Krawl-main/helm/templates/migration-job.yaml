@@ -1,0 +1,87 @@
+{{/*
+One-shot Job to migrate data from SQLite (standalone PVC) to PostgreSQL (scalable mode).
+
+Prerequisites:
+  - The Krawl deployment must have been running in standalone mode with a PVC
+  - PostgreSQL must be reachable before running this job
+  - Scale down the Krawl deployment to 0 replicas first to avoid SQLite locks
+
+Usage:
+  1. Scale down:     kubectl scale deployment <release>-krawl --replicas=0
+  2. Run migration:  helm upgrade <release> . --set migration.enabled=true
+  3. Wait for job:   kubectl wait --for=condition=complete job/<release>-krawl-migrate --timeout=600s
+  4. Switch mode:    helm upgrade <release> . --set mode=scalable --set migration.enabled=false
+*/}}
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "krawl.fullname" . }}-migrate
+  labels:
+    {{- include "krawl.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+  annotations:
+    # Allow re-running by deleting the old job first
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit | default 3 }}
+  ttlSecondsAfterFinished: {{ .Values.migration.ttlSecondsAfterFinished | default 3600 }}
+  template:
+    metadata:
+      labels:
+        {{- include "krawl.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: migrate
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+          - python
+          - /app/scripts/migrate_sqlite_to_postgres.py
+          - --sqlite-path
+          - /app/data/{{ .Values.migration.sqliteFilename | default "krawl.db" }}
+          - --postgres-host
+          - {{ .Values.postgres.host | quote }}
+          - --postgres-port
+          - {{ .Values.postgres.port | quote }}
+          - --postgres-user
+          - {{ .Values.postgres.user | quote }}
+          - --postgres-password
+          - $(POSTGRES_PASSWORD)
+          - --postgres-database
+          - {{ .Values.postgres.database | quote }}
+          - --batch-size
+          - {{ .Values.migration.batchSize | default 1000 | quote }}
+          {{- if .Values.migration.dropExisting }}
+          - --drop-existing
+          {{- end }}
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "krawl.fullname" . }}-postgres
+              key: postgres-password
+        volumeMounts:
+        - name: database
+          mountPath: /app/data
+          readOnly: true
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 12 }}
+        {{- end }}
+      volumes:
+      - name: database
+        persistentVolumeClaim:
+          claimName: {{ .Values.migration.existingClaim | default (printf "%s-db" (include "krawl.fullname" .)) }}
+          readOnly: true
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

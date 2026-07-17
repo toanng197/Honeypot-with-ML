@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "krawl.fullname" . }}-config
+  labels:
+    {{- include "krawl.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    # Krawl Honeypot Configuration
+    server:
+      port: {{ .Values.config.server.port }}
+      delay: {{ .Values.config.server.delay }}
+    links:
+      min_length: {{ .Values.config.links.min_length }}
+      max_length: {{ .Values.config.links.max_length }}
+      min_per_page: {{ .Values.config.links.min_per_page }}
+      max_per_page: {{ .Values.config.links.max_per_page }}
+      char_space: {{ .Values.config.links.char_space | quote }}
+      max_counter: {{ .Values.config.links.max_counter }}
+    canary:
+      token_url: {{ .Values.config.canary.token_url | toYaml }}
+      token_tries: {{ .Values.config.canary.token_tries }}
+    dashboard:
+      secret_path: {{ .Values.config.dashboard.secret_path | toYaml }}
+      cache_warmup: {{ .Values.config.dashboard.cache_warmup }}
+      warmup_pages: {{ .Values.config.dashboard.warmup_pages }}
+      warmup_aggregation: {{ .Values.config.dashboard.warmup_aggregation }}
+      top_n_min_count: {{ .Values.config.dashboard.top_n_min_count }}
+    backups:
+      path: {{ .Values.config.backups.path | quote }}
+      cron: {{ .Values.config.backups.cron | quote }}
+      enabled: {{ .Values.config.backups.enabled }}
+    logging:
+      level: {{ .Values.config.logging.level | quote }}
+    database:
+      path: {{ .Values.config.database.path | quote }}
+      retention_days: {{ .Values.config.database.retention_days }}
+      persist_suspicious_only: {{ .Values.config.database.persist_suspicious_only }}
+    behavior:
+      probability_error_codes: {{ .Values.config.behavior.probability_error_codes }}
+    analyzer:
+      http_risky_methods_threshold: {{ .Values.config.analyzer.http_risky_methods_threshold }}
+      violated_robots_threshold: {{ .Values.config.analyzer.violated_robots_threshold }}
+      uneven_request_timing_threshold: {{ .Values.config.analyzer.uneven_request_timing_threshold }}
+      uneven_request_timing_time_window_seconds: {{ .Values.config.analyzer.uneven_request_timing_time_window_seconds }}
+      user_agents_used_threshold: {{ .Values.config.analyzer.user_agents_used_threshold }}
+      attack_urls_threshold: {{ .Values.config.analyzer.attack_urls_threshold }}
+    crawl:
+      infinite_pages_for_malicious: {{ .Values.config.crawl.infinite_pages_for_malicious }}
+      max_pages_limit: {{ .Values.config.crawl.max_pages_limit }}
+      ban_duration_seconds: {{ .Values.config.crawl.ban_duration_seconds }}
+    ai:
+      enabled: {{ .Values.config.ai.enabled }}
+      provider: {{ .Values.config.ai.provider | quote }}
+      {{- if .Values.config.ai.model }}
+      model: {{ .Values.config.ai.model | quote }}
+      {{- end }}
+      timeout: {{ .Values.config.ai.timeout }}
+      reasoning: 
+        enabled: {{ .Values.config.ai.reasoning.enabled }}
+        effort: {{ .Values.config.ai.reasoning.effort | quote }}
+      max_daily_requests: {{ .Values.config.ai.max_daily_requests }}
+      {{- if .Values.config.ai.prompt }}
+      prompt: |
+        {{- .Values.config.ai.prompt | nindent 8 }}
+      {{- end }}
+    tarpit:
+      enabled: {{ .Values.config.tarpit.enabled }}
+      delay_seconds: {{ .Values.config.tarpit.delay_seconds }}

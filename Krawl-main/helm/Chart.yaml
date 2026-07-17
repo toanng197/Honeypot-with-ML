@@ -1,0 +1,16 @@
+apiVersion: v2
+name: krawl-chart
+description: A Helm chart for Krawl honeypot server
+type: application
+version: 2.1.0
+appVersion: 2.1.0
+keywords:
+  - honeypot
+  - security
+  - krawl
+maintainers:
+  - name: blessedrebus
+home: https://github.com/blessedrebus/krawl
+sources:
+  - https://github.com/blessedrebus/krawl
+icon: https://raw.githubusercontent.com/blessedrebus/krawl/main/img/krawl-svg.svg

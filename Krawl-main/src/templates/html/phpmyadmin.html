@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>phpMyAdmin</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            margin: 0;
+            background: #f0f0f0;
+        }
+        .header {
+            background: #2979ff;
+            color: white;
+            padding: 10px 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .login {
+            background: white;
+            width: 400px;
+            margin: 100px auto;
+            padding: 30px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .login h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 18px;
+        }
+        input[type="text"],
+        input[type="password"],
+        select {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        select:focus {
+            border-color: #2979ff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(41, 121, 255, 0.1);
+        }
+        label {
+            display: block;
+            margin: 12px 0 5px 0;
+            font-weight: 500;
+            color: #333;
+            font-size: 13px;
+        }
+        button {
+            width: 100%;
+            padding: 10px 20px;
+            background: #2979ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin-top: 15px;
+        }
+        button:hover {
+            background: #1565c0;
+        }
+        button:active {
+            background: #0d47a1;
+        }
+        .lang-select {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        .lang-select label {
+            display: inline;
+            margin-right: 10px;
+            margin: 0 10px 0 0;
+        }
+        .lang-select select {
+            width: auto;
+            padding: 5px 10px;
+            margin: 8px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            font-size: 12px;
+            color: #888;
+        }
+        .footer a {
+            color: #2979ff;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 480px) {
+            .login {
+                width: 90%;
+                margin: 50px auto;
+                padding: 20px;
+            }
+            .login h2 {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>phpMyAdmin</h1>
+    </div>
+    <div class="login">
+        <h2>MySQL Server Login</h2>
+        <form action="/phpmyadmin/index.php" method="post" autocomplete="off">            
+            <label for="username">Username:</label>
+            <input type="text" name="pma_username" id="username" placeholder="Username" autocomplete="username" autofocus>
+            
+            <label for="password">Password:</label>
+            <input type="password" name="pma_password" id="password" placeholder="Password" autocomplete="current-password">
+            
+            <button type="submit">Go</button>
+            
+            <div class="lang-select">
+                <label for="lang">Language:</label>
+                <select name="lang" id="lang">
+                    <option value="en" selected>English</option>
+                    <option value="de">Deutsch</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="it">Italiano</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                    <option value="nl">Nederlands</option>
+                    <option value="pl">Polski</option>
+                    <option value="pt">Português</option>
+                    <option value="ru">Русский</option>
+                    <option value="zh">中文</option>
+                </select>
+            </div>
+            
+            <input type="hidden" name="token" value="a1b2c3d4e5f6g7h8i9j0">
+            <input type="hidden" name="set_session" value="1">
+        </form>
+        
+        <div class="footer">
+            <a href="https://www.phpmyadmin.net/docs/" target="_blank">Documentation</a> |
+            <a href="https://www.phpmyadmin.net/" target="_blank">Official Homepage</a> |
+            <a href="https://github.com/phpmyadmin/phpmyadmin" target="_blank">Contribute</a>
+            <br><br>
+            phpMyAdmin 5.2.1
+        </div>
+    </div>
+</body>
+</html>

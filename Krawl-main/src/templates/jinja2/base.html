@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Krawl Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="{{ dashboard_path }}/static/krawl-svg.svg" />
+    <link rel="stylesheet" href="{{ dashboard_path }}/static/vendor/css/leaflet.min.css" />
+    <link rel="stylesheet" href="{{ dashboard_path }}/static/vendor/css/MarkerCluster.css" />
+    <link rel="stylesheet" href="{{ dashboard_path }}/static/vendor/css/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="{{ dashboard_path }}/static/vendor/css/material-symbols.css" />
+    <link rel="stylesheet" href="{{ dashboard_path }}/static/css/dashboard.css" />
+    <script src="{{ dashboard_path }}/static/vendor/js/leaflet.min.js" defer></script>
+    <script src="{{ dashboard_path }}/static/vendor/js/leaflet.markercluster.js" defer></script>
+    <script src="{{ dashboard_path }}/static/vendor/js/chart.min.js" defer></script>
+    <script src="{{ dashboard_path }}/static/vendor/js/htmx.min.js" defer></script>
+    <script defer src="{{ dashboard_path }}/static/vendor/js/alpine.min.js"></script>
+    <script>window.__DASHBOARD_PATH__ = '{{ dashboard_path }}';</script>
+</head>
+<body>
+    {% block content %}{% endblock %}
+
+    <script src="{{ dashboard_path }}/static/js/radar.js"></script>
+    <script src="{{ dashboard_path }}/static/js/dashboard.js"></script>
+    <script src="{{ dashboard_path }}/static/js/map.js"></script>
+    <script src="{{ dashboard_path }}/static/js/charts.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
